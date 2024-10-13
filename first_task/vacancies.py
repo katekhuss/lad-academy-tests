@@ -8,16 +8,20 @@ regions = [
     {"id": "41", "name": "Калининград"}
 ]
 
-# Список специальностей и грейдов
-specialties = ["Data Analyst", "Data Science", "Data Engineer"]
+# Список специальностей и грейдов + c русскоязычными вариантами
+specialties = [
+    {"name": "Data Analyst", "keywords": ["Data Analyst", "Дата аналитик", "Аналитик по данным"]},
+    {"name": "Data Science", "keywords": ["Data Science", "Дата сайентист"]},
+    {"name": "Data Engineer", "keywords": ["Data Engineer", "Инженер по данным", "Дата инженер"]}
+]
 grades = ["Junior", "Middle", "Senior"]
 
 data = []
 
 # Функция для получения вакансий
-def get_vacancies(area_id, specialty, level):
+def get_vacancies(area_id, keyword, level):
     params = {
-        "text": specialty + " " + level,
+        "text": keyword + " " + level,
         "area": area_id,
         "per_page": 50,
         "page": 0
@@ -28,15 +32,30 @@ def get_vacancies(area_id, specialty, level):
 # Сбор данных
 for region in regions:
     for specialty in specialties:
+        total_count = 0
+        # Получаем данные по всем ключевым словам (английские и русские варианты)
+        for keyword in specialty["keywords"]:
+            for grade in grades:
+                vacancies = get_vacancies(region["id"], keyword, grade)
+                count = vacancies.get("found", 0)
+                total_count += count
+                # Сохраняем результаты по каждой специальности и грейду
+                data.append({
+                    "region": region["name"],
+                    "specialty": specialty["name"],
+                    "grade": grade,
+                    "keyword": keyword,
+                    "count": count
+                })
+        
+        # Суммируем результаты для всех вариантов названий специальности
         for grade in grades:
-            vacancies = get_vacancies(region["id"], specialty, grade)
-            count = vacancies.get("found", 0)
-            # Проверка на дублирование с использованием словаря
             data.append({
                 "region": region["name"],
-                "specialty": specialty,
+                "specialty": specialty["name"],
                 "grade": grade,
-                "count": count
+                "keyword": "Total",
+                "count": total_count
             })
 
 # Создание датафрейма
@@ -48,8 +67,8 @@ df = df.drop_duplicates()
 # Вывод таблицы
 print(df)
 
-# Сводная таблица
-pivot_table = df.pivot_table(values='count', index=['region', 'specialty'], columns='grade', fill_value=0)
+# Сводная таблица для общего количества вакансий по всем названиям
+pivot_table = df[df['keyword'] == "Total"].pivot_table(values='count', index=['region', 'specialty'], columns='grade', fill_value=0)
 
 # Построение графика
 pivot_table.plot(kind='bar', stacked=True)
